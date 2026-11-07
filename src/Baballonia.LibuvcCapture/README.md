@@ -10,7 +10,21 @@ This plugin bypasses V4L2 entirely by using libuvc to communicate directly with 
 
 ## Running
 
-Install the .NET 10 SDK, libuvc, libusb-1.0, and libudev, including development libraries where needed. On Nix, `nix develop` from the repository root provides these dependencies; the upstream flake no longer provides a `nix run` package.
+Install the .NET 10 SDK, libuvc, libusb-1.0, and libudev. The plugin uses the Linux runtime libraries `libuvc.so.0` and `libudev.so.1`; development packages are not required for these imports.
+
+On Fedora:
+
+```bash
+sudo dnf install libuvc libusb1 systemd-libs
+```
+
+On Debian/Ubuntu:
+
+```bash
+sudo apt install libuvc0 libusb-1.0-0 libudev1
+```
+
+On Nix, `nix develop` from the repository root provides these dependencies. Launch the application from that shell so its library search path is preserved; the upstream flake no longer provides a `nix run` package.
 
 Initialize the submodules, download the desktop dependencies, and build from the repository root:
 
@@ -50,6 +64,14 @@ Replug the device or reboot.
 3. Select the device. If a capture backend selector is shown, choose `LibuvcCapture`.
 
 If it fails and the log contains errors about "no support for memory mapping" and "Insufficient buffer memory", then the wrong plugin was selected to handle the device.
+
+If the log reports `DllNotFoundException`, check the native runtime libraries:
+
+```bash
+ldconfig -p | grep -E 'libuvc\.so\.0|libusb-1\.0\.so\.0|libudev\.so\.1'
+```
+
+Install any missing runtime packages, then restart Baballonia. On Nix, use the development shell instead of `ldconfig` to provide the library search path.
 
 ## License
 

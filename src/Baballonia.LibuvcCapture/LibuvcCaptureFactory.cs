@@ -65,19 +65,19 @@ public class LibuvcCaptureFactory : ICaptureFactory
     [SupportedOSPlatform("linux")]
     private bool IsBigscreenBeyond2E(string devicePath)
     {
-        [DllImport("libudev.so")] static extern IntPtr udev_new();
-        [DllImport("libudev.so")] static extern IntPtr udev_unref(IntPtr udev);
-        [DllImport("libudev.so")] static extern IntPtr udev_enumerate_new(IntPtr udev);
-        [DllImport("libudev.so")] static extern int udev_enumerate_add_match_subsystem(IntPtr udevEnumerate, [MarshalAs(UnmanagedType.LPUTF8Str)] string subsystem);
-        [DllImport("libudev.so")] static extern int udev_enumerate_scan_devices(IntPtr udevEnumerate);
-        [DllImport("libudev.so")] static extern IntPtr udev_enumerate_get_list_entry(IntPtr udevEnumerate);
-        [DllImport("libudev.so")] static extern IntPtr udev_list_entry_get_next(IntPtr listEntry);
-        [DllImport("libudev.so")] static extern IntPtr udev_list_entry_get_name(IntPtr listEntry);
-        [DllImport("libudev.so")] static extern IntPtr udev_device_new_from_syspath(IntPtr udev, IntPtr syspath);
-        [DllImport("libudev.so")] static extern IntPtr udev_device_get_devnode(IntPtr udevDevice);
-        [DllImport("libudev.so")] static extern IntPtr udev_device_get_property_value(IntPtr udevDevice, [MarshalAs(UnmanagedType.LPUTF8Str)] string property);
-        [DllImport("libudev.so")] static extern IntPtr udev_enumerate_unref(IntPtr udevEnumerate);
-        [DllImport("libudev.so")] static extern IntPtr udev_device_unref(IntPtr udevDevice);
+        [DllImport("libudev.so.1")] static extern IntPtr udev_new();
+        [DllImport("libudev.so.1")] static extern IntPtr udev_unref(IntPtr udev);
+        [DllImport("libudev.so.1")] static extern IntPtr udev_enumerate_new(IntPtr udev);
+        [DllImport("libudev.so.1")] static extern int udev_enumerate_add_match_subsystem(IntPtr udevEnumerate, [MarshalAs(UnmanagedType.LPUTF8Str)] string subsystem);
+        [DllImport("libudev.so.1")] static extern int udev_enumerate_scan_devices(IntPtr udevEnumerate);
+        [DllImport("libudev.so.1")] static extern IntPtr udev_enumerate_get_list_entry(IntPtr udevEnumerate);
+        [DllImport("libudev.so.1")] static extern IntPtr udev_list_entry_get_next(IntPtr listEntry);
+        [DllImport("libudev.so.1")] static extern IntPtr udev_list_entry_get_name(IntPtr listEntry);
+        [DllImport("libudev.so.1")] static extern IntPtr udev_device_new_from_syspath(IntPtr udev, IntPtr syspath);
+        [DllImport("libudev.so.1")] static extern IntPtr udev_device_get_devnode(IntPtr udevDevice);
+        [DllImport("libudev.so.1")] static extern IntPtr udev_device_get_property_value(IntPtr udevDevice, [MarshalAs(UnmanagedType.LPUTF8Str)] string property);
+        [DllImport("libudev.so.1")] static extern IntPtr udev_enumerate_unref(IntPtr udevEnumerate);
+        [DllImport("libudev.so.1")] static extern IntPtr udev_device_unref(IntPtr udevDevice);
 
         try
         {
