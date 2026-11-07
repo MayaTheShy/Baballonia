@@ -1,6 +1,6 @@
-﻿using System.Text.RegularExpressions;
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using OpenCvSharp;
+using System.Text.RegularExpressions;
 
 namespace Baballonia.SDK;
 
@@ -14,16 +14,14 @@ public abstract class Capture(string source, ILogger logger) : IDisposable
     private object _rawMatLock = new();
 
     /// <summary>
-    /// Checks if the specified connection string can be used to open this device
-    /// </summary>
-    /// <param name="connectionString">The connection string to check</param>
-    /// <returns>True if the connection string can be used to open this device, false otherwise</returns>
-    public abstract bool CanConnect(string connectionString);
-
-    /// <summary>
     /// Where this Capture source is currently pulling data from
     /// </summary>
     public string Source { get; set; } = source;
+
+    /// <summary>
+    /// Whether each frame contains the left and right eyes side by side.
+    /// </summary>
+    public virtual bool HasStereoFrames => false;
 
     /// <summary>
     /// Represents the incoming frame data for this capture source.

@@ -1,30 +1,35 @@
 ﻿using Baballonia.SDK;
+using Baballonia.VFTCapture.Linux;
+using Baballonia.VFTCapture.Windows;
 using Microsoft.Extensions.Logging;
 
 namespace Baballonia.VFTCapture;
 
-public class VFTCaptureFactory : ICaptureFactory
+public class VFTCaptureFactory(ILoggerFactory loggerFactory) : ICaptureFactory
 {
-    private readonly ILoggerFactory _loggerFactory;
-
-    public VFTCaptureFactory(ILoggerFactory loggerFactory)
-    {
-        _loggerFactory = loggerFactory;
-    }
-
     public Capture Create(string address)
     {
-        return new VftCapture(address, _loggerFactory.CreateLogger<VftCapture>());
+        if (OperatingSystem.IsWindows())
+            return new WindowsVftCapture(address, loggerFactory.CreateLogger<WindowsVftCapture>());
+
+        if (OperatingSystem.IsLinux())
+            return new LinuxVftCapture(address, loggerFactory.CreateLogger<LinuxVftCapture>());
+
+        throw new InvalidOperationException("Unsupported operating system for VFTCapture.");
     }
 
     public bool CanConnect(string address)
     {
+        // address will be either the device's friendly name, or its numerical index 0, 1, 2...
         var lowered = address.ToLower();
-        return lowered.StartsWith("/dev/video");
+
+        // Hack - prevent VFTCapture from opening Babble trackers
+        if (lowered == "openiristracker") return false;
+        else if (OperatingSystem.IsWindows()) return !lowered.StartsWith("com");
+        else if (OperatingSystem.IsLinux()) return lowered.StartsWith("/dev/video");
+
+        return false;
     }
 
-    public string GetProviderName()
-    {
-        return nameof(VFTCapture);
-    }
+    public string GetProviderName() => "Vive Facial Tracker";
 }

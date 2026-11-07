@@ -1,11 +1,13 @@
-using System.Globalization;
-using System.Threading.Tasks;
 using Baballonia.Contracts;
+using System;
+using System.Globalization;
 
 namespace Baballonia.Services;
 
 public class LanguageSelectorService(ILocalSettingsService localSettingsService) : ILanguageSelectorService
 {
+    public event Action OnLanguageUpdated;
+
     public const string DefaultLanguage = "DefaultLanguage";
 
     private const string SettingsKey = "AppBackgroundRequestedLanguage";
@@ -20,6 +22,7 @@ public class LanguageSelectorService(ILocalSettingsService localSettingsService)
 
     public void SetLanguage(string language)
     {
+        OnLanguageUpdated?.Invoke();
         Language = language;
         SetRequestedLanguage();
         SaveLanguageInSettings(Language);
@@ -27,9 +30,10 @@ public class LanguageSelectorService(ILocalSettingsService localSettingsService)
 
     public void SetRequestedLanguage()
     {
-        Assets.Resources.Culture = new CultureInfo(Language == DefaultLanguage ?
-            CultureInfo.CurrentCulture.TwoLetterISOLanguageName :
-            Language);
+        // Use full culture name (eg. "zh-CN") so ResourceManager finds the specific satellite
+        // assembly. Fall back to the current UI culture name when DefaultLanguage is requested.
+        var cultureName = Language == DefaultLanguage ? CultureInfo.CurrentUICulture.Name : Language;
+        Assets.Resources.Culture = new CultureInfo(cultureName);
     }
 
     private string LoadLanguageFromSettings()

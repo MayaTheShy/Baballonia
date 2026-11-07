@@ -1,16 +1,16 @@
-using CommunityToolkit.Mvvm.ComponentModel;
-using Baballonia.Models;
+using Avalonia.Threading;
 using Baballonia.Contracts;
+using Baballonia.Helpers;
+using Baballonia.Models;
+using Baballonia.Services;
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.DependencyInjection;
+using CommunityToolkit.Mvvm.Input;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
-using Avalonia.Threading;
-using Baballonia.Helpers;
-using Baballonia.Services;
-using CommunityToolkit.Mvvm.Input;
 
 namespace Baballonia.ViewModels.SplitViewPane;
 
@@ -23,30 +23,36 @@ public partial class CalibrationViewModel : ViewModelBase, IDisposable
     public ObservableCollection<SliderBindableSetting> NoseSettings { get; set; }
     public ObservableCollection<SliderBindableSetting> CheekSettings { get; set; }
 
-    [ObservableProperty]
-    [property: SavedSetting("AppSettings_StabilizeEyes", false)]
-    private bool _stabilizeEyes;
-
     private ILocalSettingsService _settingsService { get; }
     private readonly ICalibrationService _calibrationService;
-    private readonly ParameterSenderService _parameterSenderService;
     private readonly ProcessingLoopService _processingLoopService;
     private readonly EyePipelineManager _eyePipelineManager;
 
     private readonly Dictionary<string, int> _eyeKeyIndexMap;
     private readonly Dictionary<string, int> _faceKeyIndexMap;
+
+    // Sensitivity sliders and reset buttons are disabled while auto-calibration drives the bounds
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(ResetMinimumsCommand), nameof(ResetMaximumsCommand))]
+    private bool _isManualCalibrationEnabled;
+
     public CalibrationViewModel(EyePipelineManager eyePipelineManager)
     {
         _eyePipelineManager = eyePipelineManager;
         _settingsService = Ioc.Default.GetService<ILocalSettingsService>()!;
         _calibrationService = Ioc.Default.GetService<ICalibrationService>()!;
-        _parameterSenderService = Ioc.Default.GetService<ParameterSenderService>()!;
         _processingLoopService = Ioc.Default.GetService<ProcessingLoopService>()!;
 
         EyeSettings =
         [
             new("LeftEyeLid"),
-            new("RightEyeLid")
+            new("RightEyeLid"),
+            //new ("LeftEyeWiden"),
+            //new ("LeftEyeLower"),
+            //new ("LeftEyeBrow"),
+            //new ("RightEyeWiden"),
+            //new ("RightEyeLower"),
+            //new ("RightEyeBrow"),
         ];
 
         JawSettings =
@@ -121,17 +127,23 @@ public partial class CalibrationViewModel : ViewModelBase, IDisposable
         }
 
         // Convert dictionary order into index mapping
-        _eyeKeyIndexMap = new Dictionary<string, int>()
+        _eyeKeyIndexMap = new Dictionary<string, int>
         {
             { "LeftEyeX", 0 },
             { "LeftEyeY", 1 },
+            { "LeftEyeLid", 2 },
+            //{ "LeftEyeWiden", },
+            //{ "LeftEyeLower",  },
+            //{ "LeftEyeBrow", },
             { "RightEyeX", 3 },
             { "RightEyeY", 4 },
-            { "LeftEyeLid", 2 },
-            { "RightEyeLid", 5 }
+            { "RightEyeLid", 5 },
+            //{ "RightEyeWiden", },
+            //{ "RightEyeLower",  },
+            //{ "RightEyeBrow", },
         };
 
-        _faceKeyIndexMap = _parameterSenderService.FaceExpressionMap.Keys
+        _faceKeyIndexMap = ParameterSenderService.FaceExpressionMap.Keys
             .Select((key, index) => new { key, index })
             .ToDictionary(x => x.key, x => x.index);
 
@@ -147,18 +159,32 @@ public partial class CalibrationViewModel : ViewModelBase, IDisposable
         };
 
         _processingLoopService.ExpressionChangeEvent += ExpressionUpdateHandler;
+        _calibrationService.AutoCalibrationReset += OnAutoCalibrationReset;
+        _calibrationService.AutoCalibrationEnabledChanged += OnAutoCalibrationEnabledChanged;
+        IsManualCalibrationEnabled = !_calibrationService.AutoCalibrationEnabled;
 
         LoadInitialSettings();
         _settingsService.Load(this);
+    }
 
-        PropertyChanged += (o, p) =>
+    private void OnAutoCalibrationReset()
+    {
+        // Called on the UI thread from the toggle handler.
+        // Must run synchronously so sliders show the 0.5 seed values
+        // BEFORE auto-cal tracking is enabled and pushes them.
+        if (Dispatcher.UIThread.CheckAccess())
+            LoadInitialSettings();
+        else
+            Dispatcher.UIThread.Post(LoadInitialSettings);
+    }
+
+    private void OnAutoCalibrationEnabledChanged(bool enabled)
+    {
+        Dispatcher.UIThread.Post(() =>
         {
-            if (p.PropertyName == nameof(StabilizeEyes))
-            {
-                _settingsService.SaveSetting("AppSettings_StabilizeEyes", StabilizeEyes);
-                _eyePipelineManager.LoadEyeStabilization();
-            }
-        };
+            IsManualCalibrationEnabled = !enabled;
+            LoadInitialSettings();
+        });
     }
 
     private void ExpressionUpdateHandler(ProcessingLoopService.Expressions expressions)
@@ -200,6 +226,8 @@ public partial class CalibrationViewModel : ViewModelBase, IDisposable
             if (_eyeKeyIndexMap.TryGetValue(setting.Name, out var index)
                 && index < values.Length)
             {
+                RefreshAutoCalibrationUpper(setting);
+
                 var weight = values[index];
                 var val = Math.Clamp(
                     weight.Remap(setting.Lower, setting.Upper, setting.Min, setting.Max),
@@ -217,6 +245,8 @@ public partial class CalibrationViewModel : ViewModelBase, IDisposable
             if (_faceKeyIndexMap.TryGetValue(setting.Name, out var index)
                 && index < values.Length)
             {
+                RefreshAutoCalibrationUpper(setting);
+
                 var weight = values[index];
                 var val = Math.Clamp(
                     weight.Remap(setting.Lower, setting.Upper, setting.Min, setting.Max),
@@ -227,14 +257,33 @@ public partial class CalibrationViewModel : ViewModelBase, IDisposable
         }
     }
 
-    [RelayCommand]
+    private void RefreshAutoCalibrationUpper(SliderBindableSetting setting)
+    {
+        if (!_calibrationService.AutoCalibrationEnabled)
+            return;
+
+        var calParam = _calibrationService.GetExpressionSettings(setting.Name);
+        var upperChanged = Math.Abs(setting.Upper - calParam.Upper) > 0.0001f;
+        var lowerChanged = Math.Abs(setting.Lower - calParam.Lower) > 0.0001f;
+
+        if (!upperChanged && !lowerChanged)
+            return;
+
+        // Temporarily unhook to avoid circular writes back to CalibrationService
+        setting.PropertyChanged -= OnSettingChanged;
+        if (upperChanged) setting.Upper = calParam.Upper;
+        if (lowerChanged) setting.Lower = calParam.Lower;
+        setting.PropertyChanged += OnSettingChanged;
+    }
+
+    [RelayCommand(CanExecute = nameof(IsManualCalibrationEnabled))]
     public void ResetMinimums()
     {
         _calibrationService.ResetMinimums();
         LoadInitialSettings();
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(IsManualCalibrationEnabled))]
     public void ResetMaximums()
     {
         _calibrationService.ResetMaximums();
@@ -266,5 +315,6 @@ public partial class CalibrationViewModel : ViewModelBase, IDisposable
     public void Dispose()
     {
         // _processingLoopService.ExpressionUpdateEvent -= ExpressionUpdateHandler;
+        _calibrationService.AutoCalibrationEnabledChanged -= OnAutoCalibrationEnabledChanged;
     }
 }

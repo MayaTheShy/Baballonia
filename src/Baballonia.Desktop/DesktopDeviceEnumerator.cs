@@ -10,10 +10,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.IO.Ports;
 using System.Linq;
-using System.Management;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
-using System.Threading.Tasks;
+using Baballonia.Assets;
 using Baballonia.Contracts;
 using Microsoft.Extensions.Logging;
 using OpenCvSharp;
@@ -36,7 +35,7 @@ public sealed class DesktopDeviceEnumerator(ILogger<DesktopDeviceEnumerator> log
     public Dictionary<string, string> UpdateCameras()
     {
         Logger.LogDebug("Starting camera device enumeration...");
-        Dictionary<string, string> cameraDict = new Dictionary<string, string>();
+        var cameraDict = new Dictionary<string, string>();
 
         try
         {
@@ -82,7 +81,7 @@ public sealed class DesktopDeviceEnumerator(ILogger<DesktopDeviceEnumerator> log
 
     private void AddOpenCvCameras(Dictionary<string, string> cameraDict)
     {
-        int index = 0;
+        var index = 0;
 
         while (true)
         {
@@ -93,7 +92,7 @@ public sealed class DesktopDeviceEnumerator(ILogger<DesktopDeviceEnumerator> log
             }
 
             var deviceId = index.ToString();
-            string friendlyName = $"Camera {deviceId}";
+            var friendlyName = $"Camera {deviceId}";
 
             // Make sure we don't add duplicate keys
             EnsureUniqueKey(cameraDict, friendlyName, deviceId);
@@ -101,7 +100,7 @@ public sealed class DesktopDeviceEnumerator(ILogger<DesktopDeviceEnumerator> log
             // Also add the /dev/video path for Linux systems
             if (OperatingSystem.IsLinux())
             {
-                string devPath = $"/dev/video{index}";
+                var devPath = $"/dev/video{index}";
                 EnsureUniqueKey(cameraDict, $"Video Device {index}", devPath);
             }
 
@@ -128,18 +127,18 @@ public sealed class DesktopDeviceEnumerator(ILogger<DesktopDeviceEnumerator> log
     [SupportedOSPlatform("linux")]
     private void AddLinuxUvcDevices(Dictionary<string, string> cameraDict)
     {
-        [DllImport("libudev.so")] static extern IntPtr udev_new();
-        [DllImport("libudev.so")] static extern IntPtr udev_unref(IntPtr udev);
-        [DllImport("libudev.so")] static extern IntPtr udev_enumerate_new(IntPtr udev);
-        [DllImport("libudev.so")] static extern int udev_enumerate_add_match_subsystem(IntPtr udevEnumerate, [MarshalAs(UnmanagedType.LPUTF8Str)] string subsystem);
-        [DllImport("libudev.so")] static extern int udev_enumerate_scan_devices(IntPtr udevEnumerate);
-        [DllImport("libudev.so")] static extern IntPtr udev_enumerate_get_list_entry(IntPtr udevEnumerate);
-        [DllImport("libudev.so")] static extern IntPtr udev_list_entry_get_next(IntPtr listEntry);
-        [DllImport("libudev.so")] static extern IntPtr udev_list_entry_get_name(IntPtr listEntry);
-        [DllImport("libudev.so")] static extern IntPtr udev_device_new_from_syspath(IntPtr udev, IntPtr syspath);
-        [DllImport("libudev.so")] static extern IntPtr udev_device_get_devnode(IntPtr udevDevice);
-        [DllImport("libudev.so")] static extern IntPtr udev_device_get_property_value(IntPtr udevDevice, [MarshalAs(UnmanagedType.LPUTF8Str)] string property);
-        [DllImport("libudev.so")] static extern IntPtr udev_enumerate_unref(IntPtr udevEnumerate);
+        [DllImport("libudev.so.1")] static extern IntPtr udev_new();
+        [DllImport("libudev.so.1")] static extern IntPtr udev_unref(IntPtr udev);
+        [DllImport("libudev.so.1")] static extern IntPtr udev_enumerate_new(IntPtr udev);
+        [DllImport("libudev.so.1")] static extern int udev_enumerate_add_match_subsystem(IntPtr udevEnumerate, [MarshalAs(UnmanagedType.LPUTF8Str)] string subsystem);
+        [DllImport("libudev.so.1")] static extern int udev_enumerate_scan_devices(IntPtr udevEnumerate);
+        [DllImport("libudev.so.1")] static extern IntPtr udev_enumerate_get_list_entry(IntPtr udevEnumerate);
+        [DllImport("libudev.so.1")] static extern IntPtr udev_list_entry_get_next(IntPtr listEntry);
+        [DllImport("libudev.so.1")] static extern IntPtr udev_list_entry_get_name(IntPtr listEntry);
+        [DllImport("libudev.so.1")] static extern IntPtr udev_device_new_from_syspath(IntPtr udev, IntPtr syspath);
+        [DllImport("libudev.so.1")] static extern IntPtr udev_device_get_devnode(IntPtr udevDevice);
+        [DllImport("libudev.so.1")] static extern IntPtr udev_device_get_property_value(IntPtr udevDevice, [MarshalAs(UnmanagedType.LPUTF8Str)] string property);
+        [DllImport("libudev.so.1")] static extern IntPtr udev_enumerate_unref(IntPtr udevEnumerate);
 
         [DllImport("libc.so.6")] static extern int open(IntPtr file, int oflag, int unused);
         [DllImport("libc.so.6")] static extern int close(int fd);
@@ -150,20 +149,20 @@ public sealed class DesktopDeviceEnumerator(ILogger<DesktopDeviceEnumerator> log
 
         try
         {
-            IntPtr udev = udev_new();
-            IntPtr enumerate = udev_enumerate_new(udev);
+            var udev = udev_new();
+            var enumerate = udev_enumerate_new(udev);
             try
             {
                 udev_enumerate_add_match_subsystem(enumerate, "video4linux");
                 udev_enumerate_scan_devices(enumerate);
                 Span<uint> capsStruct = stackalloc uint[26];
-                for (IntPtr iter = udev_enumerate_get_list_entry(enumerate); iter != IntPtr.Zero; iter = udev_list_entry_get_next(iter))
+                for (var iter = udev_enumerate_get_list_entry(enumerate); iter != IntPtr.Zero; iter = udev_list_entry_get_next(iter))
                 {
-                    IntPtr syspath = udev_list_entry_get_name(iter);
-                    IntPtr udevDevice = udev_device_new_from_syspath(udev, syspath);
-                    IntPtr v4L2Device = udev_device_get_devnode(udevDevice);
+                    var syspath = udev_list_entry_get_name(iter);
+                    var udevDevice = udev_device_new_from_syspath(udev, syspath);
+                    var v4L2Device = udev_device_get_devnode(udevDevice);
 
-                    int fd = open(v4L2Device, oRdwr | oNonblock, 0);
+                    var fd = open(v4L2Device, oRdwr | oNonblock, 0);
                     if (fd < 0)
                         continue;
 
@@ -183,21 +182,21 @@ public sealed class DesktopDeviceEnumerator(ILogger<DesktopDeviceEnumerator> log
                         close(fd);
                     }
 
-                    uint caps = (capsStruct[21] & v4L2CapDeviceCaps) != 0 ? capsStruct[22] : capsStruct[21];
+                    var caps = (capsStruct[21] & v4L2CapDeviceCaps) != 0 ? capsStruct[22] : capsStruct[21];
                     if ((caps & v4L2CapVideoCapture) != 0)
                     {
-                        string devicePath = Marshal.PtrToStringUTF8(v4L2Device)!;
+                        var devicePath = Marshal.PtrToStringUTF8(v4L2Device)!;
 
                         // Try to get a friendly name from udev properties
-                        IntPtr modelName = udev_device_get_property_value(udevDevice, "ID_MODEL");
-                        IntPtr vendorName = udev_device_get_property_value(udevDevice, "ID_VENDOR");
+                        var modelName = udev_device_get_property_value(udevDevice, "ID_MODEL");
+                        var vendorName = udev_device_get_property_value(udevDevice, "ID_VENDOR");
 
-                        string friendlyName = Path.GetFileName(devicePath); // Default to filename
+                        var friendlyName = Path.GetFileName(devicePath); // Default to filename
 
                         if (modelName != IntPtr.Zero)
                         {
-                            string model = Marshal.PtrToStringUTF8(modelName) ?? "";
-                            string vendor = "";
+                            var model = Marshal.PtrToStringUTF8(modelName) ?? "";
+                            var vendor = "";
 
                             if (vendorName != IntPtr.Zero)
                             {
@@ -225,10 +224,11 @@ public sealed class DesktopDeviceEnumerator(ILogger<DesktopDeviceEnumerator> log
                 udev_unref(udev);
             }
         }
-        catch (Exception e)
+        catch (Exception ex)
         {
-            cameraDict.Add($"Error listing UVC devices: {e.Message}", "error");
-            Logger.LogError(e, "Error listing UVC devices", e.Message);
+            Logger.LogWarning(ex, "Unable to probe UVC devices");
+            Logger.LogWarning(Resources.Home_Cameras_Linux_Workarounds);
+            cameraDict.Add($"Unable to probe UVC devices. {Resources.Home_Cameras_Linux_Workarounds}", "error");
         }
     }
 
@@ -238,23 +238,23 @@ public sealed class DesktopDeviceEnumerator(ILogger<DesktopDeviceEnumerator> log
         {
             if (OperatingSystem.IsWindows())
             {
-                foreach (string port in SerialPort.GetPortNames().Distinct())
+                foreach (var port in SerialPort.GetPortNames().Distinct())
                 {
                     EnsureUniqueKey(cameraDict, port, port);
                 }
             }
             else if (OperatingSystem.IsLinux())
             {
-                string[] ports = Directory.GetFiles("/dev", "ttyACM*");
-                foreach (string port in ports)
+                var ports = Directory.GetFiles("/dev", "ttyACM*");
+                foreach (var port in ports)
                 {
                     EnsureUniqueKey(cameraDict, $"Serial Device {Path.GetFileName(port)}", port);
                 }
             }
             else if (OperatingSystem.IsMacOS())
             {
-                string[] ports = Directory.GetFiles("/dev", "tty.usb*");
-                foreach (string port in ports)
+                var ports = Directory.GetFiles("/dev", "tty.usb*");
+                foreach (var port in ports)
                 {
                     EnsureUniqueKey(cameraDict, $"Serial Device {Path.GetFileName(port)}", port);
                 }
@@ -268,8 +268,8 @@ public sealed class DesktopDeviceEnumerator(ILogger<DesktopDeviceEnumerator> log
 
     private void EnsureUniqueKey(Dictionary<string, string> dict, string key, string value)
     {
-        string uniqueKey = key;
-        int counter = 1;
+        var uniqueKey = key;
+        var counter = 1;
 
         // If the key already exists, append a number to make it unique
         while (dict.ContainsKey(uniqueKey))

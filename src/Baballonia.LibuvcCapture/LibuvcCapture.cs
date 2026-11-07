@@ -25,10 +25,7 @@ public sealed class LibuvcCapture : Capture
     {
     }
 
-    public override bool CanConnect(string connectionString)
-    {
-        return connectionString.StartsWith("/dev/video");
-    }
+    public override bool HasStereoFrames => true;
 
     public override async Task<bool> StartCapture()
     {

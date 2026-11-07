@@ -29,6 +29,11 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using OpenCvSharp;
+using System;
+using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Linq;
+using System.Threading.Tasks;
 using Buffer = System.Buffer;
 using Rect = Avalonia.Rect;
 
@@ -94,9 +99,10 @@ public partial class HomePageViewModel : ViewModelBase, IDisposable
         private void Initialize(string[] cameras)
         {
             var displayAddress = _localSettingsService.ReadSetting<string>("LastOpened" + Name);
-            var camSettings = _localSettingsService.ReadSetting<CameraSettings>(Name);
+            var camSettings = _localSettingsService.ReadSetting<CameraSettings>(Name) ?? CameraSettings;
             ShouldAutostart = _localSettingsService.ReadSetting("ShouldAutostart" + Name, false);
             var preferredCapture = _localSettingsService.ReadSetting<string>("LastOpenedPreferredCapture" + Name);
+            if (preferredCapture == "Default") preferredCapture = Assets.Resources.Home_Backend_Default;
 
             UpdateCameraDropDown(cameras);
             DisplayAddress = displayAddress;
@@ -116,13 +122,24 @@ public partial class HomePageViewModel : ViewModelBase, IDisposable
 
         partial void OnDisplayAddressChanged(string value)
         {
+            // "it looks like shit" be damned, i've seen *way* too many instances of people needing to force
+            // a capture backend and this stupid visual preference garbage is getting in the way of it.
+            // we're going to get more support tickets from people who can't find this when they're on linux or
+            // using vive face trackers.
+            // if you think it looks bad, suck it, make it look better yourself, it has to be here,
+            // the NEED take precedent over visual preferences.
+            //var advancedEnabled = _localSettingsService.ReadSetting<bool>("AppSettings_AdvancedOptions");
+            var advancedEnabled = true;
             var availableCaptureFactories = _platformConnector.GetCaptureFactories()
                 .Where(factory => factory.CanConnect(value)).ToArray();
 
-            var shouldShow = availableCaptureFactories.Length >= 2;
+            var shouldShow = advancedEnabled && availableCaptureFactories.Length >= 2;
             CaptureMethodVisible = shouldShow;
 
             CaptureMethods.Clear();
+            // IF YOU'RE TRYING TO ENABLE A SPECIFIC BACKEND FOR A CAPTURE, DO NOT TOUCH THIS!
+            // THIS IS NOT WHERE YOU FORCE A BACKEND
+            // OVERRIDE THE CANCAPTURE() METHOD INSIDE THE CAPTURE'S CAPTURE FACTORY
             if (shouldShow)
             {
                 CaptureMethods.Add(Assets.Resources.Home_Backend_Default);
@@ -139,14 +156,14 @@ public partial class HomePageViewModel : ViewModelBase, IDisposable
             {
                 SelectedCaptureMethod = "";
             }
-
         }
 
         partial void OnSelectedCaptureMethodChanged(string value)
         {
             var prev = _localSettingsService.ReadSetting<string>("LastOpenedPreferredCapture" + Name);
             if (prev != value)
-                _localSettingsService.SaveSetting("LastOpenedPreferredCapture" + Name, value);
+                _localSettingsService.SaveSetting("LastOpenedPreferredCapture" + Name,
+                    value == Assets.Resources.Home_Backend_Default ? "Default" : value);
         }
 
         partial void OnShouldAutostartChanged(bool value)
@@ -244,7 +261,7 @@ public partial class HomePageViewModel : ViewModelBase, IDisposable
                 return;
 
 
-            int channels = image.Channels();
+            var channels = image.Channels();
             if (channels == 1)
             {
                 var width = image.Width;
@@ -302,9 +319,9 @@ public partial class HomePageViewModel : ViewModelBase, IDisposable
             {
                 using var frameBuffer = _bitmap.Lock();
 
-                IntPtr srcPtr = image.Data;
-                IntPtr destPtr = frameBuffer.Address;
-                int size = image.Rows * image.Cols * image.ElemSize();
+                var srcPtr = image.Data;
+                var destPtr = frameBuffer.Address;
+                var size = image.Rows * image.Cols * image.ElemSize();
 
                 unsafe
                 {
@@ -377,7 +394,6 @@ public partial class HomePageViewModel : ViewModelBase, IDisposable
     // Necessary evil to store some globals that don't really have place to go :( _sob_
     private static bool _hasPerformedFirstTimeSetup = false;
 
-
     private int _messagesRecvd;
     [ObservableProperty] private string _messagesInPerSecCount;
 
@@ -407,8 +423,7 @@ public partial class HomePageViewModel : ViewModelBase, IDisposable
     private readonly ILogger<HomePageViewModel> _logger;
     private readonly IPlatformConnector _platformConnector;
 
-    public string RequestedVRCalibration = CalibrationRoutine.Map["QuickCalibration"];
-
+    public CalibrationRoutine.Routines RequestedVRCalibration = CalibrationRoutine.Map["BasicCalibration"];
 
     public HomePageViewModel(FacePipelineManager facePipelineManager,
         EyePipelineManager eyePipelineManager,
@@ -417,7 +432,9 @@ public partial class HomePageViewModel : ViewModelBase, IDisposable
         IVROverlay vrOverlay,
         IDeviceEnumerator deviceEnumerator,
         ILocalSettingsService localSettings,
-        ILogger<HomePageViewModel> logger, DropOverlayService dropOverlayService, IPlatformConnector platformConnector)
+        ILogger<HomePageViewModel> logger,
+        DropOverlayService dropOverlayService,
+        IPlatformConnector platformConnector)
     {
         _facePipelineManager = facePipelineManager;
         _eyePipelineManager = eyePipelineManager;
@@ -440,7 +457,7 @@ public partial class HomePageViewModel : ViewModelBase, IDisposable
 
     private void Initialize()
     {
-        bool hasRead = _localSettings.ReadSetting<bool>("SecondsWarningRead");
+        var hasRead = _localSettings.ReadSetting<bool>("EyeDataOptInRead");
         if (!hasRead)
         {
             _dropOverlayService.Show();
@@ -518,13 +535,13 @@ public partial class HomePageViewModel : ViewModelBase, IDisposable
     private async Task TryStartCamerasAsync()
     {
         if (!FaceCamera.IsCameraRunning && FaceCamera.ShouldAutostart)
-            await StartCamera(FaceCamera);
+            await StartCameraWithMaximization(FaceCamera, startMaximized: false);
 
         if (!LeftCamera.IsCameraRunning && LeftCamera.ShouldAutostart)
-            await StartCamera(LeftCamera);
+            await StartCameraWithMaximization(LeftCamera, startMaximized: false);
 
         if (!RightCamera.IsCameraRunning && RightCamera.ShouldAutostart)
-            await StartCamera(RightCamera);
+            await StartCameraWithMaximization(RightCamera, startMaximized: false);
     }
 
     private void EyePipelineExceptionHandler(EyePipelineEvents.ExceptionEvent e)
@@ -606,14 +623,21 @@ public partial class HomePageViewModel : ViewModelBase, IDisposable
     [RelayCommand]
     public async Task StartCamera(CameraControllerModel model)
     {
+        await StartCameraWithMaximization(model, startMaximized: true);
+    }
+
+	private async Task StartCameraWithMaximization(CameraControllerModel model, bool startMaximized)
+    {
         try
         {
             SetButtons(model, false, false);
             var address = model.DisplayAddress;
             var backend = model.SelectedCaptureMethod;
+            if (backend == Assets.Resources.Home_Backend_Default)
+                backend = "";
 
 
-            bool success = false;
+            var success = false;
             switch (model.Camera)
             {
                 case Camera.Face:
@@ -632,6 +656,15 @@ public partial class HomePageViewModel : ViewModelBase, IDisposable
 
             if (success)
             {
+                // Only select the entire frame if and only if
+                // 1) This call originates from the UI, IE a user has requested it
+                // 2) The current camera differs from the previous (IE, an existing connection was interrupted)
+                var lastOpenedCameraName = _localSettings.ReadSetting<string>("LastOpened" + model.Name);
+                if (startMaximized && lastOpenedCameraName != model.DisplayAddress)
+                {
+                    model.SelectWholeFrame();
+                }
+
                 SetCameraRunning(model);
                 _localSettings.SaveSetting("LastOpened" + model.Name, model.DisplayAddress);
             }
@@ -663,29 +696,30 @@ public partial class HomePageViewModel : ViewModelBase, IDisposable
     [RelayCommand]
     private async Task RequestVRCalibration()
     {
-        var res = await _vrOverlay.EyeTrackingCalibrationRequested(RequestedVRCalibration);
-        if (res.success)
-        {
-            if (!Directory.Exists(Utils.ModelsDirectory))
+        var res = await Task.Run(async () =>
             {
-                Directory.CreateDirectory(Utils.ModelsDirectory);
+                try
+                {
+                    return await _vrOverlay.EyeTrackingCalibrationRequested(RequestedVRCalibration);
+                }
+                catch (Exception ex)
+                {
+                    return (false, ex.Message);
+                }
             }
-
-            var destPath = Path.Combine(Utils.ModelsDirectory,
-                $"tuned_temporal_eye_tracking_{DateTime.Now.ToString("yyyyMMdd_HHmmss")}.onnx");
-            File.Move("tuned_temporal_eye_tracking.onnx", destPath);
-            _localSettings.SaveSetting("EyeHome_EyeModel", destPath);
-            await _eyePipelineManager.LoadInferenceAsync();
+        );
+        if (res.Item1)
+        {
             SelectedCalibrationTextBlock.Foreground = new SolidColorBrush(Colors.Green);
         }
         else
         {
             SelectedCalibrationTextBlock.Foreground = new SolidColorBrush(Colors.Red);
-            _logger.LogError(res.status);
+            _logger.LogError(res.Item2);
         }
 
         var previousText = SelectedCalibrationTextBlock.Text;
-        SelectedCalibrationTextBlock.Text = res.status;
+        SelectedCalibrationTextBlock.Text = res.Item2;
         await Task.Delay(5000);
         SelectedCalibrationTextBlock.Text = previousText;
         SelectedCalibrationTextBlock.Foreground = new SolidColorBrush(GetBaseHighColor());
@@ -693,7 +727,7 @@ public partial class HomePageViewModel : ViewModelBase, IDisposable
 
     public Color GetBaseHighColor()
     {
-        Color color = Colors.White;
+        var color = Colors.White;
         switch (Application.Current!.ActualThemeVariant.ToString())
         {
             case "Light":

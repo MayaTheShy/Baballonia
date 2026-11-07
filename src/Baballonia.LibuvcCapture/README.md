@@ -10,46 +10,64 @@ This plugin bypasses V4L2 entirely by using libuvc to communicate directly with 
 
 ## Running
 
-To build the whole Baballonia project (including this plugin), with nix, go to the root directory of this repository and run:
+Install the .NET 10 SDK, libuvc, libusb-1.0, and libudev. The plugin uses the Linux runtime libraries `libuvc.so.0` and `libudev.so.1`; development packages are not required for these imports.
+
+On Fedora:
 
 ```bash
-nix run
+sudo dnf install libuvc libusb1 systemd-libs
 ```
 
-Building only this plugin may not work because a small change had to be made to Baballonia to prevent other plugins from handling the BSB2E cameras. And it hasn't been tested. Anyway, to do that without nix:
+On Debian/Ubuntu:
 
-- install libuvc, libusb-1.0, and .NET 8 SDK
-- run `dotnet build`
-- copy `bin/Debug/net8.0/Baballonia.LibuvcCapture.dll` and `bin/Debug/net8.0/Baballonia.LibuvcCapture.pdb` into the `Modules` directory of your Baballonia
+```bash
+sudo apt install libuvc0 libusb-1.0-0 libudev1
+```
+
+On Nix, `nix develop` from the repository root provides these dependencies. Launch the application from that shell so its library search path is preserved; the upstream flake no longer provides a `nix run` package.
+
+Initialize the submodules, download the desktop dependencies, and build from the repository root:
+
+```bash
+git submodule update --init --recursive
+./download_dependencies.sh
+dotnet build src/Baballonia.Desktop/Baballonia.Desktop.csproj
+```
+
+The desktop build places the plugin in its output `Modules` directory. Run the application from the desktop build output.
 
 ## Device permissions
 
-To use the BSB2E cameras without root privileges, create a udev rules file (you may need to adjust the `GROUP` to a group your user is in):
+Libuvc opens the USB device directly, so membership in the `video` group alone is not enough. Do not run Baballonia with `sudo`.
 
-Create `/etc/udev/rules.d/99-bigeye.rules`:
-
-```
-# Bigscreen Bigeye Eye Tracking Camera
-SUBSYSTEM=="usb", ATTR{idVendor}=="35bd", ATTR{idProduct}=="0202", MODE="0666", GROUP="plugdev"
-SUBSYSTEM=="video4linux", ATTR{idVendor}=="35bd", ATTR{idProduct}=="0202", MODE="0666", GROUP="plugdev"
-```
-
-Then reload udev rules:
+On Fedora and other systemd desktop distributions, the included rule grants USB access to the active local desktop user through `uaccess`, without making the device world-writable. From the repository root, install it without replacing an existing rule:
 
 ```bash
+sudo cp --no-clobber src/Baballonia.LibuvcCapture/70-baballonia-bigeye.rules /etc/udev/rules.d/
 sudo udevadm control --reload-rules
-sudo udevadm trigger
 ```
 
-Replug the device or reboot.
+Unplug and reconnect the headset's USB connection, then restart Baballonia as your normal user. Existing udev rules are left unchanged. The rule is intentionally named before systemd's seat rules so the ACL is applied.
+
+This grants access to an active local desktop session, not a headless or SSH-only session. If access is still denied, check the ACL on the headset's `/dev/bus/usb/BBB/DDD` node (find the bus and device using `lsusb -d 35bd:0202`). It should include your user with read/write access.
 
 ## Usage
 
 1. Launch Baballonia
 2. The BSB2E device will appear in the camera dropdown as `/dev/video0` (or similar)
-3. Select the device - the plugin will automatically detect it's a BSB2E and use libuvc
+3. Select the device. If a capture backend selector is shown, choose `LibuvcCapture`.
+
+Select the same Bigeye camera entry and backend in both eye panels. Baballonia shares one USB stream and displays the left half in the left-eye panel and the right half in the right-eye panel. Starting either eye alone also selects that eye's half. Other capture backends and your saved crop settings are unchanged; use the panel's whole-frame selection if an old crop no longer fits the single-eye image.
 
 If it fails and the log contains errors about "no support for memory mapping" and "Insufficient buffer memory", then the wrong plugin was selected to handle the device.
+
+If the log reports `DllNotFoundException`, check the native runtime libraries:
+
+```bash
+ldconfig -p | grep -E 'libuvc\.so\.0|libusb-1\.0\.so\.0|libudev\.so\.1'
+```
+
+Install any missing runtime packages, then restart Baballonia. On Nix, use the development shell instead of `ldconfig` to provide the library search path.
 
 ## License
 

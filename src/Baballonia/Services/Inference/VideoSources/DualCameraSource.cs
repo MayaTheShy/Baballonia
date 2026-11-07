@@ -1,6 +1,7 @@
-﻿using System;
 using Baballonia.Services.Inference.Enums;
+using Baballonia.Services.Inference.VideoSources;
 using OpenCvSharp;
+using System;
 
 namespace Baballonia.Services.Inference;
 
@@ -29,6 +30,11 @@ public class DualCameraSource : IVideoSource
         var leftImage = LeftCam?.GetFrame(color);
         var rightImage = RightCam?.GetFrame(color);
 
+        if (leftImage != null && LeftCam is SingleCameraSource { HasStereoFrames: true })
+            leftImage = ExtractEye(leftImage, false);
+        if (rightImage != null && RightCam is SingleCameraSource { HasStereoFrames: true })
+            rightImage = ExtractEye(rightImage, true);
+
         if (leftImage == null && rightImage == null)
             return null;
 
@@ -38,6 +44,7 @@ public class DualCameraSource : IVideoSource
 
         leftImage ??= LastLeftImage;
         rightImage ??= LastRightImage;
+
 
         switch (leftImage)
         {
@@ -56,7 +63,9 @@ public class DualCameraSource : IVideoSource
         int minHeight = Math.Min(leftImage.Rows, rightImage.Rows);
         int minWidth = Math.Min(leftImage.Cols, rightImage.Cols);
 
-
+        if (leftImage.Empty() || rightImage.Empty())
+            return null;
+            
         Mat resizedLeft = new Mat();
         Mat resizedRight = new Mat();
         Cv2.Resize(leftImage, resizedLeft, new Size(minWidth, minHeight));
@@ -90,6 +99,19 @@ public class DualCameraSource : IVideoSource
             resizedRight.Dispose();
 
         return result;
+    }
+
+    private static Mat ExtractEye(Mat image, bool rightEye)
+    {
+        using (image)
+        {
+            var halfWidth = image.Width / 2;
+            if (halfWidth == 0 || image.Empty())
+                throw new InvalidOperationException("A stereo camera frame must contain two non-empty eye images.");
+
+            using var eye = new Mat(image, new Rect(rightEye ? halfWidth : 0, 0, halfWidth, image.Height));
+            return eye.Clone();
+        }
     }
 
     public void Dispose()

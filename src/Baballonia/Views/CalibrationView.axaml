@@ -63,18 +63,6 @@
         </Expander.Header>
         <StackPanel Margin="0,5">
 
-          <Border Background="{DynamicResource SystemChromeMediumLowColor}" CornerRadius="6" Padding="12" Margin="0,4">
-            <StackPanel Spacing="8">
-              <Grid ColumnDefinitions="*,Auto">
-                <StackPanel Grid.Column="0">
-                  <TextBlock Text="{x:Static assets:Resources.Calibration_Eye_Expressions_Stabilize_Eyes_Header}" FontWeight="SemiBold"/>
-                  <TextBlock Text="{x:Static assets:Resources.Calibration_Eye_Expressions_Stabilize_Eyes_Description}" FontSize="12" Foreground="{DynamicResource SystemBaseMediumColor}"/>
-                </StackPanel>
-                <CheckBox Grid.Column="1" VerticalAlignment="Center" IsChecked="{Binding StabilizeEyes, Mode=TwoWay}"/>
-              </Grid>
-            </StackPanel>
-          </Border>
-
           <ItemsControl ItemsSource="{Binding EyeSettings}">
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="models:SliderBindableSetting">
@@ -92,6 +80,7 @@
                         <Run Text="{Binding Upper, StringFormat={}{0:0.00}}" />
                       </TextBlock>
                       <twoRangeSlider:RangeSlider
+                        IsEnabled="{Binding $parent[UserControl].((splitViewPane:CalibrationViewModel)DataContext).IsManualCalibrationEnabled}"
                         LowerSelectedValue="{Binding Lower, Mode=TwoWay}"
                         Maximum="1"
                         Minimum="0"
@@ -131,6 +120,7 @@
                         <Run Text="{Binding Upper, StringFormat={}{0:0.00}}" />
                       </TextBlock>
                       <twoRangeSlider:RangeSlider
+                        IsEnabled="{Binding $parent[UserControl].((splitViewPane:CalibrationViewModel)DataContext).IsManualCalibrationEnabled}"
                         LowerSelectedValue="{Binding Lower, Mode=TwoWay}"
                         Maximum="1"
                         Minimum="0"
@@ -170,6 +160,7 @@
                         <Run Text="{Binding Upper, StringFormat={}{0:0.00}}" />
                       </TextBlock>
                       <twoRangeSlider:RangeSlider
+                        IsEnabled="{Binding $parent[UserControl].((splitViewPane:CalibrationViewModel)DataContext).IsManualCalibrationEnabled}"
                         LowerSelectedValue="{Binding Lower, Mode=TwoWay}"
                         Maximum="1"
                         Minimum="0"
@@ -209,6 +200,7 @@
                         <Run Text="{Binding Upper, StringFormat={}{0:0.00}}" />
                       </TextBlock>
                       <twoRangeSlider:RangeSlider
+                        IsEnabled="{Binding $parent[UserControl].((splitViewPane:CalibrationViewModel)DataContext).IsManualCalibrationEnabled}"
                         LowerSelectedValue="{Binding Lower, Mode=TwoWay}"
                         Maximum="1"
                         Minimum="0"
@@ -248,6 +240,7 @@
                         <Run Text="{Binding Upper, StringFormat={}{0:0.00}}" />
                       </TextBlock>
                       <twoRangeSlider:RangeSlider
+                        IsEnabled="{Binding $parent[UserControl].((splitViewPane:CalibrationViewModel)DataContext).IsManualCalibrationEnabled}"
                         LowerSelectedValue="{Binding Lower, Mode=TwoWay}"
                         Maximum="1"
                         Minimum="0"
@@ -287,6 +280,7 @@
                         <Run Text="{Binding Upper, StringFormat={}{0:0.00}}" />
                       </TextBlock>
                       <twoRangeSlider:RangeSlider
+                        IsEnabled="{Binding $parent[UserControl].((splitViewPane:CalibrationViewModel)DataContext).IsManualCalibrationEnabled}"
                         LowerSelectedValue="{Binding Lower, Mode=TwoWay}"
                         Maximum="1"
                         Minimum="0"

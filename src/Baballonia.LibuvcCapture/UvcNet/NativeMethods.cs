@@ -9,7 +9,7 @@ namespace Uvc.Net
 {
     static class NativeMethods
     {
-        const string libName = "libuvc";
+        const string libName = "libuvc.so.0";
 
         [DllImport(libName, CallingConvention = CallingConvention.Cdecl)]
         internal static extern UvcError uvc_init(out UvcContext pctx, IntPtr usb_ctx);
