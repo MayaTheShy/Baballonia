@@ -38,30 +38,26 @@ The desktop build places the plugin in its output `Modules` directory. Run the a
 
 ## Device permissions
 
-To use the BSB2E cameras without root privileges, create a udev rules file (you may need to adjust the `GROUP` to a group your user is in):
+Libuvc opens the USB device directly, so membership in the `video` group alone is not enough. Do not run Baballonia with `sudo`.
 
-Create `/etc/udev/rules.d/99-bigeye.rules`:
-
-```
-# Bigscreen Bigeye Eye Tracking Camera
-SUBSYSTEM=="usb", ATTR{idVendor}=="35bd", ATTR{idProduct}=="0202", MODE="0666", GROUP="plugdev"
-SUBSYSTEM=="video4linux", ATTR{idVendor}=="35bd", ATTR{idProduct}=="0202", MODE="0666", GROUP="plugdev"
-```
-
-Then reload udev rules:
+On Fedora and other systemd desktop distributions, the included rule grants USB access to the active local desktop user through `uaccess`, without making the device world-writable. From the repository root, install it without replacing an existing rule:
 
 ```bash
+sudo cp --no-clobber src/Baballonia.LibuvcCapture/70-baballonia-bigeye.rules /etc/udev/rules.d/
 sudo udevadm control --reload-rules
-sudo udevadm trigger
 ```
 
-Replug the device or reboot.
+Unplug and reconnect the headset's USB connection, then restart Baballonia as your normal user. Existing udev rules are left unchanged. The rule is intentionally named before systemd's seat rules so the ACL is applied.
+
+This grants access to an active local desktop session, not a headless or SSH-only session. If access is still denied, check the ACL on the headset's `/dev/bus/usb/BBB/DDD` node (find the bus and device using `lsusb -d 35bd:0202`). It should include your user with read/write access.
 
 ## Usage
 
 1. Launch Baballonia
 2. The BSB2E device will appear in the camera dropdown as `/dev/video0` (or similar)
 3. Select the device. If a capture backend selector is shown, choose `LibuvcCapture`.
+
+Select the same Bigeye camera entry and backend in both eye panels. Baballonia shares one USB stream and displays the left half in the left-eye panel and the right half in the right-eye panel. Starting either eye alone also selects that eye's half. Other capture backends and your saved crop settings are unchanged; use the panel's whole-frame selection if an old crop no longer fits the single-eye image.
 
 If it fails and the log contains errors about "no support for memory mapping" and "Insufficient buffer memory", then the wrong plugin was selected to handle the device.
 

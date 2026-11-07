@@ -1,0 +1,2 @@
+# Allow the active local desktop user to access the Bigscreen Bigeye USB camera.
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="35bd", ATTR{idProduct}=="0202", TAG+="uaccess"

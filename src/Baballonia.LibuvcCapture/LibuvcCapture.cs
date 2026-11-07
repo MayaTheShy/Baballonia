@@ -25,6 +25,8 @@ public sealed class LibuvcCapture : Capture
     {
     }
 
+    public override bool HasStereoFrames => true;
+
     public override async Task<bool> StartCapture()
     {
         try

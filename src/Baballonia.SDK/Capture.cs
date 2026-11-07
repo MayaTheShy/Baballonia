@@ -19,6 +19,11 @@ public abstract class Capture(string source, ILogger logger) : IDisposable
     public string Source { get; set; } = source;
 
     /// <summary>
+    /// Whether each frame contains the left and right eyes side by side.
+    /// </summary>
+    public virtual bool HasStereoFrames => false;
+
+    /// <summary>
     /// Represents the incoming frame data for this capture source.
     /// Will be `dimension` in BGR color space. <br/>
     /// Acquiring this value the caller takes ownership of the Mat object and sets the internal reference to null. <br/>

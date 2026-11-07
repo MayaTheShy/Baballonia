@@ -12,6 +12,8 @@ public class SingleCameraSource : IVideoSource
     private string _cameraAddress;
     private readonly Capture _capture;
 
+    public bool HasStereoFrames => _capture.HasStereoFrames;
+
     public SingleCameraSource(
         ILogger logger,
         Capture capture,
