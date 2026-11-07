@@ -35,6 +35,8 @@ Head to the releases tab and [download the latest tarball](https://github.com/Pr
 
 You may be prompted to download the .NET runtime for desktop apps, install it if need be.
 
+The Linux V4L2 backend requires `libv4l2.so.0`. On Fedora, install it with `sudo dnf install libv4l`; on Debian/Ubuntu, use `sudo apt install libv4l-0`. Development packages are not required. The fork's LibuvcCapture backend has [separate runtime dependencies](src/Baballonia.LibuvcCapture/README.md) and should be used for Bigeye cameras that cannot allocate V4L2 buffers.
+
 ### MacOS
 
 Baballonia currently does not have an installer for MacOS. You will need to follow our build instructions and run it from source.

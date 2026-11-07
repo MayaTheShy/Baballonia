@@ -25,7 +25,7 @@
           dotnet.sdk dotnet.runtime
           xorg.libX11 xorg.libSM xorg.libICE
           libjpeg onnxruntime libGL fontconfig
-          libuvc libusb1
+          libuvc libusb1 v4l-utils
           (pkgs.callPackage ./nix/opencvsharp.nix {})
         ];
 
