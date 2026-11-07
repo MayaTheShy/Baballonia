@@ -10,17 +10,17 @@ This plugin bypasses V4L2 entirely by using libuvc to communicate directly with 
 
 ## Running
 
-To build the whole Baballonia project (including this plugin), with nix, go to the root directory of this repository and run:
+Install the .NET 10 SDK, libuvc, libusb-1.0, and libudev, including development libraries where needed. On Nix, `nix develop` from the repository root provides these dependencies; the upstream flake no longer provides a `nix run` package.
+
+Initialize the submodules, download the desktop dependencies, and build from the repository root:
 
 ```bash
-nix run
+git submodule update --init --recursive
+./download_dependencies.sh
+dotnet build src/Baballonia.Desktop/Baballonia.Desktop.csproj
 ```
 
-Building only this plugin may not work because a small change had to be made to Baballonia to prevent other plugins from handling the BSB2E cameras. And it hasn't been tested. Anyway, to do that without nix:
-
-- install libuvc, libusb-1.0, and .NET 8 SDK
-- run `dotnet build`
-- copy `bin/Debug/net8.0/Baballonia.LibuvcCapture.dll` and `bin/Debug/net8.0/Baballonia.LibuvcCapture.pdb` into the `Modules` directory of your Baballonia
+The desktop build places the plugin in its output `Modules` directory. Run the application from the desktop build output.
 
 ## Device permissions
 
@@ -47,7 +47,7 @@ Replug the device or reboot.
 
 1. Launch Baballonia
 2. The BSB2E device will appear in the camera dropdown as `/dev/video0` (or similar)
-3. Select the device - the plugin will automatically detect it's a BSB2E and use libuvc
+3. Select the device. If a capture backend selector is shown, choose `LibuvcCapture`.
 
 If it fails and the log contains errors about "no support for memory mapping" and "Insufficient buffer memory", then the wrong plugin was selected to handle the device.
 

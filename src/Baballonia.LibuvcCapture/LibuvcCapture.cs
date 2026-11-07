@@ -25,11 +25,6 @@ public sealed class LibuvcCapture : Capture
     {
     }
 
-    public override bool CanConnect(string connectionString)
-    {
-        return connectionString.StartsWith("/dev/video");
-    }
-
     public override async Task<bool> StartCapture()
     {
         try

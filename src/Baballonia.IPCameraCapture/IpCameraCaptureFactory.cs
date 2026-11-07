@@ -1,21 +1,13 @@
-﻿using Baballonia.IPCameraCapture;
-using Baballonia.SDK;
+﻿using Baballonia.SDK;
 using Microsoft.Extensions.Logging;
 
-namespace Baballonia.Android.Captures;
+namespace Baballonia.IPCameraCapture;
 
-public class IpCameraCaptureFactory : ICaptureFactory
+public class IpCameraCaptureFactory(ILoggerFactory loggerFactory) : ICaptureFactory
 {
-    private readonly ILoggerFactory _loggerFactory;
-
-    public IpCameraCaptureFactory(ILoggerFactory loggerFactory)
-    {
-        _loggerFactory = loggerFactory;
-    }
-
     public Capture Create(string address)
     {
-        return new IpCameraCapture(address, _loggerFactory.CreateLogger<IpCameraCapture>());
+        return new IpCameraCapture(address, loggerFactory.CreateLogger<IpCameraCapture>());
     }
 
     public bool CanConnect(string address)
@@ -23,8 +15,5 @@ public class IpCameraCaptureFactory : ICaptureFactory
         return Uri.TryCreate(address, UriKind.RelativeOrAbsolute, out _) && address.StartsWith("http://");
     }
 
-    public string GetProviderName()
-    {
-        return nameof(IpCameraCapture);
-    }
+    public string GetProviderName() => "Wireless/IP Camera";
 }
